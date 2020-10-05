@@ -11,7 +11,7 @@ public class Asteroid : MonoBehaviour {
     Vector3 movedPosition;
     Rigidbody2D rigidbody = null;
 
-    void Start() {
+    void OnEnable() {
         movementVector = environment.wind;
         movedPosition = position.transform.position;
 
@@ -30,6 +30,6 @@ public class Asteroid : MonoBehaviour {
         movedPosition -= delta;
 
         if (transform.position.magnitude > environment.maxDistance)
-            Destroy(gameObject);
+            environment.DestroyAsteroid(gameObject);
     }
 }
