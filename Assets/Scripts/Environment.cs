@@ -6,37 +6,76 @@ public class Environment : MonoBehaviour {
     [SerializeField] public Vector2 wind;
     [SerializeField] public float maxError;
 
-    [SerializeField] public GameObject generate;
+    [SerializeField] public GameObject asteroidPrefab;
+    [SerializeField] public GameObject debrisPrefab;
     [SerializeField] public GameObject parent;
     [SerializeField] public float distance;
     [SerializeField] public float frequency;
     [SerializeField] public Position position;
     [SerializeField] public float maxDistance;
 
-    [SerializeField] public int objectPoolSize;
+    [SerializeField] public int asteroidPoolSize;
+    [SerializeField] public int debrisPoolSize;
 
     float untilNext = 0.0f;
     float windAngle;
     float fCeil;
 
-    private Queue<GameObject> objectPool;
+    private Queue<GameObject> asteroidPool;
+    private Queue<GameObject> debrisPool;
 
     // Start is called before the first frame update
     void Start() {
-        objectPool = new Queue<GameObject>(objectPoolSize);
+        asteroidPool = new Queue<GameObject>(asteroidPoolSize);
         GameObject temp;
 
-        for (int i = 0; i < objectPoolSize; ++i) {
-            temp = Instantiate(generate, new Vector3(0.0f, 0.0f, 0.0f), Quaternion.identity);
+        System.Random r = new System.Random();
+
+        int nrOfCells = 10;
+        AsteroidGrid ag = new AsteroidGrid(nrOfCells);
+        MeshNode asteroidMeshTree = ag.ConstructMeshTree();
+
+        for (int i = 0; i < asteroidPoolSize; ++i) {
+            temp = Instantiate(asteroidPrefab, new Vector3(0.0f, 0.0f, 0.0f), Quaternion.identity);
             temp.SetActive(false);
-            objectPool.Enqueue(temp);
+
+            Debris a = temp.GetComponent<Debris>();
+            a.environment = this;
+            a.position = position;
+            a.seed = r.Next(1, 10000);
+            a.meshTree = asteroidMeshTree;
+            a.gameObjectToCreate = asteroidPrefab;
+
+            a.Init();
+
+            asteroidPool.Enqueue(temp);
         }
+
+        debrisPool = new Queue<GameObject>(debrisPoolSize);
+
+        //MeshNode debrisMesh = new MeshNode(debrisPrefab.GetComponent<>);
+/*
+        for (int i = 0; i < asteroidPoolSize; ++i){
+            temp = Instantiate(debrisPrefab, new Vector3(0.0f, 0.0f, 0.0f), Quaternion.identity);
+            temp.SetActive(false);
+
+            Debris d = temp.GetComponent<Debris>();
+            d.environment = this;
+            d.position = poisition;
+            d.seed = r.Next(1, 10000);
+            d.meshTree = meshTree;
+
+            debrisPool.Enqueue(temp);
+        }
+    */
     }
 
     private Vector3 SpawnPoint() {
-        float randomPi = Random.Range(0.0f, Mathf.PI);
+        float trim = Mathf.PI / 8.0f;
+        float randomPi = Random.Range(trim, Mathf.PI - trim);
         Vector2 onCircle = new Vector2(Mathf.Cos(randomPi), Mathf.Sin(randomPi)) * distance;
-        windAngle = Mathf.Atan2(wind.x, wind.y);
+        Vector2 windMovement = (wind - 6 * position.dir).normalized;
+        windAngle = Mathf.Atan2(windMovement.x, windMovement.y);
         float needToRotate = -windAngle;
         Vector3 rotatedCircle = new Vector2(onCircle.x * Mathf.Cos(needToRotate) - onCircle.y * Mathf.Sin(needToRotate),
                                             onCircle.x * Mathf.Sin(needToRotate) + onCircle.y * Mathf.Cos(needToRotate));
@@ -44,18 +83,35 @@ public class Environment : MonoBehaviour {
     }
 
     public void CreateAsteroid() {
+        if (asteroidPool.Count == 0)
+            return;
+
         // Get the spawn point
         Vector3 newPos = SpawnPoint();
 
         // Get an object from the object pool. Set the position
-        GameObject n = objectPool.Dequeue();
+        GameObject n = asteroidPool.Dequeue();
         n.transform.position = newPos;
 
         // Asteroid script initialization
-        Asteroid a = n.GetComponent<Asteroid>();
-        a.environment = this;
-        a.transform.parent = parent.transform;
+        Debris a = n.GetComponent<Debris>();
         a.position = position;
+
+        // Activate the object
+        n.SetActive(true);
+    }
+
+    public void CreteDebris() {
+        if (debrisPool.Count == 0)
+            return;
+
+        Vector3 newPos = SpawnPoint();
+
+        // Get an object from the object pool. Set the position
+        GameObject n = debrisPool.Dequeue();
+        n.transform.position = newPos;
+        n.transform.eulerAngles = new Vector3(0, 90, 0);
+        n.GetComponent<Rigidbody>().velocity = new Vector3(wind.x, wind.y, 0);
 
         // Activate the object
         n.SetActive(true);
@@ -63,7 +119,7 @@ public class Environment : MonoBehaviour {
 
     public void DestroyAsteroid(GameObject asteroid) {
         asteroid.SetActive(false);
-        objectPool.Enqueue(asteroid);
+        asteroidPool.Enqueue(asteroid);
     }
 
     // Update is called once per frame
@@ -72,6 +128,7 @@ public class Environment : MonoBehaviour {
         fCeil = 1.0f / frequency;
         while (untilNext > fCeil) {
             CreateAsteroid();
+            CreteDebris();
             untilNext -= fCeil;
         }
     }

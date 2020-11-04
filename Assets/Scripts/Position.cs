@@ -4,6 +4,7 @@ using UnityEngine;
 
 public class Position : MonoBehaviour {
     public float power = 1.0f;
+    public Vector2 dir;
 
     bool[] isPressed = new bool[4];
 
@@ -52,8 +53,10 @@ public class Position : MonoBehaviour {
         if (isPressed[3])
             delta.x += 1;
 
+        dir = delta.normalized;
+
         if (delta.magnitude != 0)
-            delta = delta.normalized * power * Time.deltaTime;
+            delta = dir * power * Time.deltaTime;
 
         transform.position += delta;
     }
