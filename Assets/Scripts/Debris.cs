@@ -5,11 +5,13 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
-public class Debris : MonoBehaviour
-{
+public class Debris : MonoBehaviour {
     [SerializeField] public Position position = null;
     [SerializeField] public Environment environment = null;
     [SerializeField] public GameObject gameObjectToCreate = null;
+
+    [SerializeField] public GameObject explosionParticleToCreate = null;
+    private GameObject explosionParticle = null;
 
     Vector3 movementVector;
     Vector3 movedPosition;
@@ -34,6 +36,12 @@ public class Debris : MonoBehaviour
     [SerializeField] bool broken;
     [SerializeField] Vector3 centroid;
 
+    [SerializeField] public bool isTemplate = false;
+
+    public void Start() {
+        gameObject.GetComponent<MeshCollider>().name = "AsteroidMesh";
+    }
+
     private void RecursiveDisable() {
         if (children != null && children.Length != 0) {
             foreach (GameObject c in children) {
@@ -47,11 +55,15 @@ public class Debris : MonoBehaviour
     }
 
     private void OnEnable() {
+        movedPosition = new Vector3(-10000, -10000, -10000);
         gameObject.GetComponent<MeshRenderer>().enabled = true;
         gameObject.GetComponent<MeshCollider>().enabled = true;
         gameObject.GetComponent<SphereCollider>().enabled = false;
         gracePeriod = 10;
         broken = false;
+
+        Vector3 newAng = new Vector3(Random.Range(-1, 1), Random.Range(-1, 1), Random.Range(-1, 1));
+        gameObject.GetComponent<Rigidbody>().angularVelocity = newAng;
 
         // Disable children
         RecursiveDisable();
@@ -66,12 +78,15 @@ public class Debris : MonoBehaviour
         children = new GameObject[kids.Count];
 
         for (int i = 0; i < kids.Count; ++i) {
-            children[i] = Instantiate(gameObjectToCreate, new Vector3(0f, 0f, 0f), Quaternion.identity, gameObject.transform);
+            Transform t = gameObject.transform;
+            children[i] = Instantiate(gameObjectToCreate, new Vector3(0f, 0f, 0f), Quaternion.identity, t);
+            children[i].transform.localScale = new Vector3(1f, 1f, 1f);
             children[i].SetActive(false);
             Debris childDebris = children[i].GetComponent<Debris>();
             childDebris.meshTree = kids[i];
             childDebris.root = root;
             childDebris.gameObjectToCreate = gameObjectToCreate;
+            childDebris.explosionParticleToCreate = explosionParticleToCreate;
             childDebris.Init();
         }
     }
@@ -79,8 +94,8 @@ public class Debris : MonoBehaviour
     private void InitRoot() {
         // Get a MeshTree
         // TODO: Outside Debris
-        
-        breaks = meshTree.GetTreeSize();
+
+        breaks = meshTree.GetTreeSize() * 2;
         root = gameObject;
     }
 
@@ -93,7 +108,6 @@ public class Debris : MonoBehaviour
     }
 
     private void OnDisable() {
-        movedPosition = new Vector3(-10000, -10000, -10000);
         gameObject.GetComponent<Rigidbody>().velocity = movementVector;
         broken = false;
     }
@@ -107,6 +121,8 @@ public class Debris : MonoBehaviour
     }
 
     public void Init() {
+
+
         // Root object
         if (gameObject.transform.parent == null)
             InitRoot();
@@ -117,12 +133,24 @@ public class Debris : MonoBehaviour
 
         centroid = meshTree.GetCentroid();
 
+        // Create particle carrier
+        explosionParticle = Instantiate(explosionParticleToCreate, new Vector3(0f, 0f, 0f), Quaternion.identity, gameObject.transform);
+        explosionParticle.GetComponent<AsteroidExplosion>().position = position;
+        explosionParticle.GetComponent<AsteroidExplosion>().root = root;
+        explosionParticle.GetComponent<AsteroidExplosion>().Init();
+        explosionParticle.SetActive(false);
+
         InitChildren();
 
 
         // Set Mesh
         gameObject.GetComponent<MeshFilter>().mesh = meshTree.GetMesh();
-        gameObject.GetComponent<MeshCollider>().sharedMesh = meshTree.GetMesh();
+
+        if (meshTree.collider == null)
+            gameObject.GetComponent<MeshCollider>().sharedMesh = meshTree.GetMesh();
+
+        else
+            gameObject.GetComponent<MeshCollider>().sharedMesh = meshTree.collider.sharedMesh;
 
         // Movement
         movementVector = new Vector3(environment.wind.x, environment.wind.y, 0);
@@ -138,14 +166,14 @@ public class Debris : MonoBehaviour
         gameObject.GetComponent<Renderer>().material.SetFloat("_Seed", Random.Range(-10000, 10000));
     }
 
-    private void FixedUpdate() {
-        rigidbody.velocity = new Vector3(rigidbody.velocity.x, rigidbody.velocity.y, 0);
-    }
-
     // Update is called once per frame
     void Update() {
-        if (movedPosition.x == -10000)
+        if (isTemplate)
+            return;
+
+        if (movedPosition.x == -10000) {
             movedPosition = position.transform.position;
+        }
 
         else {
             Vector3 delta = movedPosition - position.transform.position;
@@ -157,13 +185,10 @@ public class Debris : MonoBehaviour
 
         // Sync rigidBody and Transform
         //transform.position = rigidbody.position;
-        
+
         if (broken) {
             rigidbody.angularVelocity = new Vector3(0f, 0f, 0f);
         }
-        
-        Quaternion rot = Quaternion.Euler(0, 0, rigidbody.rotation.eulerAngles.z);
-        rigidbody.rotation = rot;
 
         if (gracePeriod != 0)
             gracePeriod -= 1;
@@ -217,8 +242,6 @@ public class Debris : MonoBehaviour
             center += gameObject.transform.position;
             center = new Vector3(center.x, center.y, 0);
 
-            gameObject.GetComponent<ParticleSystem>().Play();
-
             gameObject.GetComponent<SphereCollider>().center = center;
             gameObject.GetComponent<SphereCollider>().enabled = true;
             gracePeriod = 4;
@@ -226,9 +249,16 @@ public class Debris : MonoBehaviour
 
         gameObject.GetComponent<MeshRenderer>().enabled = false;
         gameObject.GetComponent<MeshCollider>().enabled = false;
+
+        // Particles
+        explosionParticle.SetActive(true);
+        explosionParticle.GetComponent<AsteroidExplosion>().Play();
     }
 
     void OnCollisionEnter(Collision collision) {
+        if (isTemplate)
+            return;
+
         Break();
     }
 }

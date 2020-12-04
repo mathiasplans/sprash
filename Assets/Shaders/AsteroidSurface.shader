@@ -10,8 +10,8 @@
 
         Pass {
             CGPROGRAM
-// Upgrade NOTE: excluded shader from DX11; has structs without semantics (struct v2f members normal)
-#pragma exclude_renderers d3d11
+            // Upgrade NOTE: excluded shader from DX11; has structs without semantics (struct v2f members normal)
+            #pragma exclude_renderers d3d11
 
             #pragma vertex vert
             #pragma fragment frag
@@ -62,7 +62,7 @@
                 // sample the texture
                 // fixed4 col = tex2D(_MainTex, i.uv);
                 // float3 src = float3(11.0, 7.0, -10.0);
-                float3 light = float3(5.0, 5.0, -0.0);
+                float3 light = _WorldSpaceLightPos0;
                 float3 lightdir = light - i.worldcoord;
                 float rcol = dot(normalize(i.worldnormal), normalize(lightdir)) / 2 + 0.5;
                 float3 c = float3(rcol, rcol, rcol);

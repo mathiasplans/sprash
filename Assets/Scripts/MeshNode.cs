@@ -7,6 +7,7 @@ public class MeshNode {
     private List<MeshNode> children;
     private Vector3 position;
     private Vector3 centroid;
+    public MeshCollider collider = null;
 
     private int size = 1;
 
@@ -15,6 +16,14 @@ public class MeshNode {
         this.position = position;
         this.children = new List<MeshNode>();
         this.centroid = centroid;
+    }
+
+    public MeshNode(Mesh mesh, Vector3 position, Vector3 centroid, MeshCollider collider) {
+        this.mesh = mesh;
+        this.position = position;
+        this.children = new List<MeshNode>();
+        this.centroid = centroid;
+        this.collider = collider;
     }
 
     private struct Triangle {
@@ -29,6 +38,24 @@ public class MeshNode {
         public override int GetHashCode() {
             return this.v1.GetHashCode() ^ (2 * this.v2).GetHashCode() ^ (3 * this.v3).GetHashCode();
         }
+    }
+
+    public MeshNode(Mesh[] meshes, MeshCollider collider) {
+        // CombineInstance[] combine = new CombineInstance[meshes.Length];
+
+        // for (int i = 0; i < meshes.Length; ++i) {
+        //     combine[i].mesh = meshes[i];
+        // }
+
+        // this.mesh = new Mesh();
+        // this.mesh.CombineMeshes(combine, false);
+        // this.mesh.RecalculateNormals();
+
+        this.mesh = meshes[meshes.Length - 1];
+
+        this.centroid = new Vector3(0, 0, 0);
+        this.children = new List<MeshNode>();
+        this.collider = collider;
     }
 
     public MeshNode(Mesh mesh1, Mesh mesh2) {

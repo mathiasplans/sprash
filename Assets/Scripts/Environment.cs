@@ -9,6 +9,8 @@ public class Environment : MonoBehaviour {
     [SerializeField] public GameObject asteroidPrefab;
     [SerializeField] public GameObject debrisPrefab;
     [SerializeField] public GameObject parent;
+    [SerializeField] public GameObject asteroidEndParticle;
+    [SerializeField] public GameObject debrisEndParticle;
     [SerializeField] public float distance;
     [SerializeField] public float frequency;
     [SerializeField] public Position position;
@@ -45,6 +47,7 @@ public class Environment : MonoBehaviour {
             a.seed = r.Next(1, 10000);
             a.meshTree = asteroidMeshTree;
             a.gameObjectToCreate = asteroidPrefab;
+            a.explosionParticleToCreate = asteroidEndParticle;
 
             a.Init();
 
@@ -53,21 +56,20 @@ public class Environment : MonoBehaviour {
 
         debrisPool = new Queue<GameObject>(debrisPoolSize);
 
-        //MeshNode debrisMesh = new MeshNode(debrisPrefab.GetComponent<>);
-/*
-        for (int i = 0; i < asteroidPoolSize; ++i){
+        for (int i = 0; i < asteroidPoolSize; ++i) {
             temp = Instantiate(debrisPrefab, new Vector3(0.0f, 0.0f, 0.0f), Quaternion.identity);
             temp.SetActive(false);
 
-            Debris d = temp.GetComponent<Debris>();
+            Movable d = temp.GetComponent<Movable>();
             d.environment = this;
-            d.position = poisition;
-            d.seed = r.Next(1, 10000);
-            d.meshTree = meshTree;
+            d.position = position;
+
+            d.Init();
+
+            temp.transform.rotation = debrisPrefab.transform.rotation;
 
             debrisPool.Enqueue(temp);
         }
-    */
     }
 
     private Vector3 SpawnPoint() {
@@ -120,6 +122,11 @@ public class Environment : MonoBehaviour {
     public void DestroyAsteroid(GameObject asteroid) {
         asteroid.SetActive(false);
         asteroidPool.Enqueue(asteroid);
+    }
+
+    public void DestroyDebris(GameObject debris) {
+        debris.SetActive(false);
+        debrisPool.Enqueue(debris);
     }
 
     // Update is called once per frame
