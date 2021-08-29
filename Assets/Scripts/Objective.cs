@@ -44,15 +44,20 @@ public class Objective : MonoBehaviour {
     }
 
     // Start is called before the first frame update
-    void Start() {
+    public void Start() {
         this.travelled = new Vector3(0f, 0f, 0f);
         this.lastPosition = new Vector3(0f, 0f, 0f);
         this.averageDirection = new Vector3(0f, 0f, 0f);
         this.travelledDistance = 0f;
+        this.dataPoints = 0;
+        this.discovered = false;
 
         System.Random r = new System.Random();
         this.neededTravel = this.NextFloat(r, this.minTravelDistance, this.maxTravelDistance);
         this.neededDiscovery = this.NextFloat(r, this.minDiscoveryDistance, this.maxDiscoveryDistance);
+
+        // Log
+        Debug.Log("New objective started");
 
         // Timeout coroutine
         StartCoroutine(Timeout(this.timeout));
@@ -82,6 +87,8 @@ public class Objective : MonoBehaviour {
             // Get the position of the objective from 0, 0, 0
             this.objectivePosition = this.averageDirection.normalized * this.neededDiscovery;
             this.discovered = true;
+            travelledDistance = 0;
+            Debug.Log("A");
         }
     }
 

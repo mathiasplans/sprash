@@ -11,6 +11,7 @@ public class Satellite : MonoBehaviour {
     [SerializeField] public float missileSpeed;
     [SerializeField] public float missileTurningSpeed;
     [SerializeField] public float missileTimeout;
+    [SerializeField] public float explosionForce;
     [SerializeField] public Environment environment;
     [SerializeField] public Position position;
     [SerializeField] public AntiPosition antiPosition;
@@ -26,6 +27,7 @@ public class Satellite : MonoBehaviour {
     [SerializeField] public ObjectiveArrow objectiveArrow;
     [SerializeField] public Image objectiveCircle;
     [SerializeField] public CameraFlash cameraFlash;
+    [SerializeField] public Text levelText;
 
     bool rotating = false;
 
@@ -100,7 +102,7 @@ public class Satellite : MonoBehaviour {
 
         public Rocket(GameObject missileObject, uint nrOfMissiles, float speed, float turningSpeed,
                       float maxDist, Position position, AntiPosition antiPosition, Camera camera,
-                      AbilitySelector selector, float timeout) {
+                      AbilitySelector selector, float timeout, float explosionForce) {
             // Create containers
             this.missilePool = new Queue<GameObject>();
             this.activePool = new HashSet<GameObject>();
@@ -121,6 +123,7 @@ public class Satellite : MonoBehaviour {
                 missile.maxDistance = maxDist;
                 missile.position = position;
                 missile.timeout = timeout;
+                missile.explosionForce = explosionForce;
 
                 TrailShifter ts = rocket.GetComponentInChildren<TrailShifter>();
                 ts.SetSimulationSpace(antiPosition);
@@ -180,11 +183,12 @@ public class Satellite : MonoBehaviour {
         private Camera camera;
         private CameraFlash cameraFlash;
         private SceneChanger sceneChanger;
+        private Text level;
 
         private bool isDone = false;
 
         public SpaceCamera(Objective objective, AbilitySelector selector, ObjectiveArrow objectiveArrow, Image objectiveCircle,
-                           Camera camera, CameraFlash cameraFlash, SceneChanger sceneChanger) {
+                           Camera camera, CameraFlash cameraFlash, SceneChanger sceneChanger, Text level) {
             this.objective = objective;
             this.selector = selector;
             this.objectiveArrow = objectiveArrow;
@@ -192,6 +196,7 @@ public class Satellite : MonoBehaviour {
             this.camera = camera;
             this.cameraFlash = cameraFlash;
             this.sceneChanger = sceneChanger;
+            this.level = level;
 
             // By default, off
             this.objectiveCircle.gameObject.SetActive(false);
@@ -209,14 +214,18 @@ public class Satellite : MonoBehaviour {
         public void Use() {
             if (this.objective.IsAchievable()) {
                 this.cameraFlash.Flash();
-                this.isDone = true;
 
                 // Change UI
                 this.objectiveCircle.gameObject.SetActive(false);
                 this.objectiveArrow.gameObject.SetActive(false);
 
-                // Change scene
-                this.sceneChanger.ChangeAfter(2f);
+                // Next level
+                this.objective.Start();
+
+                // Increment level
+                int currentLevel = Int32.Parse(this.level.text);
+                currentLevel += 1;
+                this.level.text = currentLevel.ToString();
             }
         }
 
@@ -274,9 +283,9 @@ public class Satellite : MonoBehaviour {
         sideAbility.Add(Side.SHIELD, new Shield(shieldObjectToCreate, shieldSelector));
         sideAbility.Add(Side.MISSILE, new Rocket(missileObjectToCreate, nrOfMissiles, missileSpeed,
                                                  missileTurningSpeed, environment.maxDistance, position,
-                                                 antiPosition, Camera.main, missileSelector, missileTimeout));
+                                                 antiPosition, Camera.main, missileSelector, missileTimeout, this.explosionForce));
         sideAbility.Add(Side.CAMERA, new SpaceCamera(this.objective, this.cameraSelector, this.objectiveArrow, this.objectiveCircle,
-                                                     Camera.main, this.cameraFlash, gameObject.GetComponent<SceneChanger>()));
+                                                     Camera.main, this.cameraFlash, gameObject.GetComponent<SceneChanger>(), this.levelText));
         sideAbility.Add(Side.SIDE6, null);
         sideAbility.Add(Side.NONE, null);
     }

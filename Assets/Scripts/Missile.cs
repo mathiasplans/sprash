@@ -8,6 +8,7 @@ public class Missile : MonoBehaviour {
     [SerializeField] public float turningSpeed = 0.1f;
     [SerializeField] public GameObject trailer;
     [SerializeField] public float timeout;
+    [SerializeField] public float explosionForce;
     public Action<GameObject> onDestroy;
     public float maxDistance;
 
@@ -154,8 +155,10 @@ public class Missile : MonoBehaviour {
     void OnCollisionEnter(Collision collision) {
         Debug.Log(collision.collider.name);
         // Only destruct when hitting an asteroid or panel
-        if (collision.collider.name == "AsteroidMesh" || collision.collider.name == "Panel")
+        if (collision.collider.name == "AsteroidMesh" || collision.collider.name == "Panel") {
+            collision.rigidbody.AddExplosionForce(this.explosionForce, transform.position, 1.5f * transform.localScale.x * gameObject.GetComponent<SphereCollider>().radius);
             this.Destruct();
+        }
 
         else
             Physics.IgnoreCollision(collision.collider, gameObject.GetComponent<CapsuleCollider>());
