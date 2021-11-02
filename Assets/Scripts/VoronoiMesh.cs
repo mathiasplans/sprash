@@ -7,70 +7,58 @@ using HullDelaunayVoronoi.Delaunay;
 using HullDelaunayVoronoi.Hull;
 using HullDelaunayVoronoi.Primitives;
 
-public class VoronoiMesh : MonoBehaviour
-{
-    public int NumberOfVertices = 100;
-    public float size = 5;
-    public int seed = 0;
-    public bool drawLines;
-    public Material material;
-    [Range(0.1f, 1.0f)] public float radius = 0.5f;
-    [Range(0.1f, 1.0f)] public float xsize = 1.0f;
-    [Range(0.1f, 1.0f)] public float ysize = 1.0f;
-    [Range(0.1f, 1.0f)] public float zsize = 1.0f;
+public class VoronoiMesh {
+    private static bool Filter(Vector3 region, Vertex3 filterable, float scale, float rad) {
+        float x = filterable.X / region.x;
+        float y = filterable.Y / region.y;
+        float z = filterable.Z / region.z;
 
-    private Material lineMaterial;
-    private Matrix4x4 rotation = Matrix4x4.identity;
-    private float theta;
-    private VoronoiMesh3 voronoi;
-    private List<Mesh> meshes;
-
-    private bool Filter(float x, float y, float z) {
-        x /= this.xsize;
-        y /= this.ysize;
-        z /= this.zsize;
-
-        float r = this.radius * this.size;
+        float r = scale * rad;
 
         return x*x + y*y + z*z <= r*r;
     }
 
-    private void Start() {
-        lineMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
+    private static bool InBound(Vertex3 v, float scale) {
+        if (v.X < -scale || v.X > scale) return false;
+        if (v.Y < -scale || v.Y > scale) return false;
+        if (v.Z < -scale || v.Z > scale) return false;
 
-        Vertex3[] vertices = new Vertex3[NumberOfVertices];
+        return true;
+    }
+
+    public static (List<Mesh> meshes, List<Vector3> centers) Get(int nverts, float scale, int seed, Material mat, float rad, Vector3 size) {
+        Vertex3[] vertices = new Vertex3[nverts];
 
         Random.InitState(seed);
-        for (int i = 0; i < NumberOfVertices; i++) {
-            float x = size * Random.Range(-1.0f, 1.0f);
-            float y = size * Random.Range(-1.0f, 1.0f);
-            float z = size * Random.Range(-1.0f, 1.0f);
+        for (int i = 0; i < nverts; i++) {
+            float x = scale * Random.Range(-1.0f, 1.0f);
+            float y = scale * Random.Range(-1.0f, 1.0f);
+            float z = scale * Random.Range(-1.0f, 1.0f);
 
             vertices[i] = new Vertex3(x, y, z);
         }
 
-        voronoi = new VoronoiMesh3();
+        VoronoiMesh3 voronoi = new VoronoiMesh3();
         voronoi.Generate(vertices);
 
-        RegionsToMeshes();
+        return RegionsToMeshes(voronoi, scale, seed, mat, rad, size);
     }
 
-    private void RegionsToMeshes() {
-
-        meshes = new List<Mesh>();
+    private static (List<Mesh> meshes, List<Vector3> centers) RegionsToMeshes(VoronoiMesh3 voronoi, float scale, int seed, Material mat, float rad, Vector3 size) {
+        List<Mesh> meshes = new List<Mesh>();
+        List<Vector3> centers = new List<Vector3>();
 
         foreach (VoronoiRegion<Vertex3> region in voronoi.Regions) {
             bool draw = true;
 
             Vertex3 center = region.ArithmeticCenter;
-            if (!this.Filter(center.X, center.Y, center.Z)) {
+            if (!Filter(size, center, scale, rad))
                 continue;
-            }
 
             List<Vertex3> verts = new List<Vertex3>();
 
             foreach (DelaunayCell<Vertex3> cell in region.Cells) {
-                if (!InBound(cell.CircumCenter)) {
+                if (!InBound(cell.CircumCenter, scale)) {
                     draw = false;
                     break;
                 }
@@ -83,9 +71,8 @@ public class VoronoiMesh : MonoBehaviour
             if (!draw)
                 continue;
 
-            //If you find the convex hull of the voronoi region it
-            //can be used to make a triangle mesh.
-
+            // If you find the convex hull of the voronoi region it
+            // can be used to make a triangle mesh.
             ConvexHull3 hull = new ConvexHull3();
             hull.Generate(verts, false);
 
@@ -131,95 +118,12 @@ public class VoronoiMesh : MonoBehaviour
             mesh.SetTriangles(indices, 0);
 
             mesh.RecalculateBounds();
-            //mesh.RecalculateNormals();
+            mesh.RecalculateNormals();
 
             meshes.Add(mesh);
+            centers.Add(new Vector3(center.X, center.Y, center.Z));
         }
 
-    }
-
-    private void Update() {
-
-        if (Input.GetKey(KeyCode.KeypadPlus) || Input.GetKey(KeyCode.KeypadMinus)) {
-            theta += (Input.GetKey(KeyCode.KeypadPlus)) ? 0.005f : -0.005f;
-
-            rotation[0, 0] = Mathf.Cos(theta);
-            rotation[0, 2] = Mathf.Sin(theta);
-            rotation[2, 0] = -Mathf.Sin(theta);
-            rotation[2, 2] = Mathf.Cos(theta);
-        }
-
-        if (meshes != null)
-        {
-            MaterialPropertyBlock block = new MaterialPropertyBlock();
-
-            foreach (Mesh mesh in meshes)
-                Graphics.DrawMesh(mesh, rotation, material, 0, Camera.main, 0, block, true, true);
-        }
-
-    }
-
-    private void OnGUI()
-    {
-        GUI.Label(new Rect(20, 20, Screen.width, Screen.height), "Numpad +/- to Rotate");
-    }
-
-    private void OnPostRender()
-    {
-        if (!drawLines) return;
-
-        if (voronoi == null || voronoi.Regions.Count == 0) return;
-
-        GL.PushMatrix();
-
-        GL.LoadIdentity();
-        GL.MultMatrix(GetComponent<Camera>().worldToCameraMatrix * rotation);
-        GL.LoadProjectionMatrix(GetComponent<Camera>().projectionMatrix);
-
-        lineMaterial.SetPass(0);
-        GL.Begin(GL.LINES);
-        GL.Color(Color.red);
-
-        foreach (VoronoiRegion<Vertex3> region in voronoi.Regions)
-        {
-            bool draw = true;
-
-            foreach (DelaunayCell<Vertex3> cell in region.Cells)
-            {
-                if (!InBound(cell.CircumCenter))
-                {
-                    draw = false;
-                    break;
-                }
-            }
-
-            if (!draw) continue;
-
-            foreach (VoronoiEdge<Vertex3> edge in region.Edges)
-            {
-                Vertex3 v0 = edge.From.CircumCenter;
-                Vertex3 v1 = edge.To.CircumCenter;
-
-                DrawLine(v0, v1);
-            }
-        }
-
-        GL.End();
-        GL.PopMatrix();
-    }
-
-    private void DrawLine(Vertex3 v0, Vertex3 v1)
-    {
-        GL.Vertex3(v0.X, v0.Y, v0.Z);
-        GL.Vertex3(v1.X, v1.Y, v1.Z);
-    }
-
-    private bool InBound(Vertex3 v)
-    {
-        if (v.X < -size || v.X > size) return false;
-        if (v.Y < -size || v.Y > size) return false;
-        if (v.Z < -size || v.Z > size) return false;
-
-        return true;
+        return (meshes, centers);
     }
 }
