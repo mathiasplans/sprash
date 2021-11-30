@@ -6,19 +6,29 @@ using System;
 public class VoroAsteroid : MonoBehaviour {
     public GameObject root;
     public GameObject phys;
+    public Environment environment;
+    public Position position;
     public int nrOfLeaves;
 
     private Stack<GameObject> active;
     private Stack<GameObject> deactive;
     private HierHandler rootHandler;
 
-    public void Initialize() {
+    public void Initialize(Environment environment, Position position) {
+        this.environment = environment;
+        this.position = position;
+
         this.active = new Stack<GameObject>(this.nrOfLeaves);
         this.deactive = new Stack<GameObject>(this.nrOfLeaves);
 
         for (int i = 0; i < this.nrOfLeaves; ++i) {
             GameObject newPhys = Instantiate(this.phys);
             newPhys.SetActive(false);
+
+            AstePhys p = newPhys.GetComponent<AstePhys>();
+            p.position = position;
+            p.environment = environment;
+            p.handler = this;
 
             this.active.Push(newPhys);
         }
@@ -37,9 +47,12 @@ public class VoroAsteroid : MonoBehaviour {
 
         // Disable itself
         gameObject.SetActive(false);
+
+        // Return to the environment
+        this.environment.ReturnAsteroid(this);
     }
 
-    public void Enable() {
+    public void Enable(Vector3 pos, Vector3 velocity) {
         gameObject.SetActive(true);
 
         // Enable the children as well
@@ -47,7 +60,9 @@ public class VoroAsteroid : MonoBehaviour {
 
         // Activate the root
         GameObject newPhys = this.active.Pop();
-        this.rootHandler.Activate(newPhys);
+        this.rootHandler.Activate(newPhys, 10f);
+        newPhys.transform.localPosition = pos;
+        newPhys.GetComponent<Rigidbody>().velocity = velocity;
     }
 
     public void Disable() {
@@ -68,6 +83,14 @@ public class VoroAsteroid : MonoBehaviour {
     public void ReturnPhys(GameObject p) {
         if (this.deactive.Count == this.nrOfLeaves)
             throw new Exception("The object pool is full!");
+
+        Rigidbody prb = p.GetComponent<Rigidbody>();
+        prb.position = Vector3.zero;
+        prb.angularVelocity = Vector3.zero;
+        prb.velocity = Vector3.zero;
+
+        prb.transform.localPosition = Vector3.zero;
+        prb.transform.eulerAngles = Vector3.zero;
 
         this.deactive.Push(p);
 

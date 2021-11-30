@@ -7,6 +7,8 @@ public class HierHandler : MonoBehaviour {
     public GameObject c1;
     public GameObject c2;
     public VoroAsteroid handler;
+    public Position pos;
+    public int size;
 
     private HierHandler c1hh;
     private HierHandler c2hh;
@@ -14,11 +16,6 @@ public class HierHandler : MonoBehaviour {
     private Vector3 originalPosition;
     private Vector3 originalEuler;
     private Vector3 originalScale;
-
-    // Start is called before the first frame update
-    void Start() {
-
-    }
 
     public void Initialize() {
         if (!this.isLeaf) {
@@ -29,12 +26,14 @@ public class HierHandler : MonoBehaviour {
         this.originalPosition = gameObject.transform.localPosition;
         this.originalEuler = gameObject.transform.localEulerAngles;
         this.originalScale = gameObject.transform.localScale;
+
+        this.pos = this.handler.position;
     }
 
     private void RestoreTransform() {
-        gameObject.transform.localPosition = this.originalPosition;
-        gameObject.transform.localEulerAngles = this.originalEuler;
-        gameObject.transform.localScale = this.originalScale;
+        gameObject.transform.localPosition = originalPosition;
+        gameObject.transform.localEulerAngles = originalEuler;
+        gameObject.transform.localScale = originalScale;
     }
 
     public void Enable() {
@@ -50,8 +49,7 @@ public class HierHandler : MonoBehaviour {
     }
 
     public void Reset() {
-        // Restore the transform
-        this.RestoreTransform();
+        RestoreTransform();
 
         // Disable recursively
         foreach (Transform child in gameObject.transform) {
@@ -70,14 +68,19 @@ public class HierHandler : MonoBehaviour {
         gameObject.SetActive(false);
     }
 
-    public void Activate(GameObject phys) {
-        // The transform of phys has to match the current transform of this object
-        Transform ownTransform = gameObject.transform;
-        Transform physTransform = phys.transform;
+    public void Activate(GameObject phys, float grace) {
+        // Grace period
+        if (grace > 0f) {
+            this.grace = Time.time + grace / 1000f;
+            this.invulrn = true;
+        }
 
-        physTransform.localPosition = ownTransform.localPosition;
-        physTransform.localEulerAngles = ownTransform.localEulerAngles;
-        physTransform.localScale = ownTransform.localScale;
+        // The transform of phys has to match the current transform of this object
+        Transform physTransform = phys.transform;
+        Rigidbody physRigid = phys.GetComponent<Rigidbody>();
+
+        // Set the mass of the object
+        physRigid.mass = (float) this.size;
 
         // Get the parent
         GameObject parent = gameObject.transform.parent.gameObject;
@@ -86,17 +89,15 @@ public class HierHandler : MonoBehaviour {
         physTransform.parent = parent.transform;
         gameObject.transform.parent = physTransform;
 
-        // Grace period
-        this.grace = 10;
-
         // Activate the phys
+        phys.gameObject.GetComponent<AstePhys>().Reset();
         phys.SetActive(true);
 
         // Activate this component
         this.enabled = true;
     }
 
-    private (Rigidbody, Rigidbody) Split() {
+    private (Rigidbody, Rigidbody) Split(float grace) {
         // Get the phys
         GameObject phys = gameObject.transform.parent.gameObject;
 
@@ -106,9 +107,6 @@ public class HierHandler : MonoBehaviour {
         // Do the switcharoo
         gameObject.transform.parent = parent.transform;
         phys.transform.parent = null;
-
-        // Restore original transform
-        this.RestoreTransform();
 
         // If we are leaf, return the phys object
         if (this.isLeaf) {
@@ -123,38 +121,76 @@ public class HierHandler : MonoBehaviour {
 
         // Otherwise make children independent
         else {
+            Vector3 physPos = phys.transform.localPosition;
+            Vector3 physEuler = phys.transform.localEulerAngles;
+            Vector3 physVel = phys.GetComponent<Rigidbody>().velocity;
+            Vector3 physAngVel = phys.GetComponent<Rigidbody>().angularVelocity;
+
             // For the first child, we can reuse the phys
-            this.c1hh.Activate(phys);
+            this.c1hh.Activate(phys, grace);
 
             // For the second child, we need a phys from the master handler
             GameObject secondPhys = this.handler.GetPhys();
-            this.c2hh.Activate(secondPhys);
+            secondPhys.transform.position = Vector3.zero;
+
+            secondPhys.transform.localPosition = physPos;
+            secondPhys.transform.localEulerAngles = physEuler;
+            secondPhys.GetComponent<Rigidbody>().velocity = physVel;
+            secondPhys.GetComponent<Rigidbody>().angularVelocity = physAngVel;
+
+            this.c2hh.Activate(secondPhys, grace);
+
+            // Make transformations
+            gameObject.transform.localPosition = Vector3.zero;
+            gameObject.transform.localEulerAngles = Vector3.zero;
+
+            phys.transform.localPosition = physPos;
+            phys.transform.localEulerAngles = physEuler;
+            phys.GetComponent<Rigidbody>().velocity = physVel;
+            phys.GetComponent<Rigidbody>().angularVelocity = physAngVel;
+
+            secondPhys.transform.localPosition = physPos;
+            secondPhys.transform.localEulerAngles = physEuler;
+            secondPhys.GetComponent<Rigidbody>().velocity = physVel;
+            secondPhys.GetComponent<Rigidbody>().angularVelocity = physAngVel;
 
             return (phys.GetComponent<Rigidbody>(), secondPhys.GetComponent<Rigidbody>());
         }
     }
 
-    private int grace = 0;
+    private float grace = 0f;
+    private bool invulrn = true;
 
     void Update() {
-        if (grace > 0)
-            grace -= 1;
+        if (grace <= Time.time) {
+            this.invulrn = false;
+        }
+    }
+
+    public void Disintegrate() {
+        (Rigidbody left, Rigidbody right) rigids = Split(0f);
+
+        if (!this.isLeaf) {
+            c1hh.Disintegrate();
+            c2hh.Disintegrate();
+        }
     }
 
     public void Collision(Collision collision) {
-        if (grace > 0)
+        if (this.invulrn) {
             return;
+        }
 
         // Split the asteroid
-        (Rigidbody left, Rigidbody right) rigids = Split();
+        (Rigidbody left, Rigidbody right) rigids = Split(100f);
 
         if (!this.isLeaf) {
             // Get the center of the split
             Vector3 c = (c1.transform.position + c2.transform.position) / 2.0f;
 
             // Debug.Log(collision.collider.name);
-            rigids.left.AddExplosionForce(0.1f, c, 10.0f);
-            rigids.right.AddExplosionForce(0.1f, c, 10.0f);
+            rigids.left.AddExplosionForce(0.3f, c, 10.0f);
+            rigids.right.AddExplosionForce(0.3f, c, 10.0f);
         }
     }
 }
