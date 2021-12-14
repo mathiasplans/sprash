@@ -68,12 +68,8 @@ public class HierHandler : MonoBehaviour {
         gameObject.SetActive(false);
     }
 
-    public void Activate(GameObject phys, float grace) {
-        // Grace period
-        if (grace > 0f) {
-            this.grace = Time.time + grace / 1000f;
-            this.invulrn = true;
-        }
+    private void AdoptionProcess(GameObject phys) {
+        phys.gameObject.GetComponent<AstePhys>().Grace();
 
         // The transform of phys has to match the current transform of this object
         Transform physTransform = phys.transform;
@@ -88,13 +84,35 @@ public class HierHandler : MonoBehaviour {
         // We now need to inject the phys between the parent and this object
         physTransform.parent = parent.transform;
         gameObject.transform.parent = physTransform;
+    }
 
+    private void SetGrace(float grace) {
+        if (grace > 0f) {
+            this.grace = Time.time + grace / 1000f;
+            this.invulrn = true;
+        }
+    }
+
+    private void ActivatePhysAndComp(GameObject phys) {
         // Activate the phys
         phys.gameObject.GetComponent<AstePhys>().Reset();
         phys.SetActive(true);
 
+        // Reset health
+        this.health = Mathf.Sqrt(this.size) * HierHandler.maxHealth;
+
         // Activate this component
         this.enabled = true;
+    }
+
+    private void ActivateWithoutEnable(GameObject phys, float grace) {
+        this.SetGrace(grace);
+        this.AdoptionProcess(phys);
+    }
+
+    public void Activate(GameObject phys, float grace) {
+        this.ActivateWithoutEnable(phys, grace);
+        this.ActivatePhysAndComp(phys);
     }
 
     private (Rigidbody, Rigidbody) Split(float grace) {
@@ -176,21 +194,36 @@ public class HierHandler : MonoBehaviour {
         }
     }
 
+    private const float maxHealth = 2500f;
+    private float health = 1500f;
+
     public void Collision(Collision collision) {
         if (this.invulrn) {
             return;
         }
 
-        // Split the asteroid
-        (Rigidbody left, Rigidbody right) rigids = Split(100f);
+        // Get the force
+        Vector3 forceVector = collision.impulse / Time.fixedDeltaTime;
+        float force = forceVector.magnitude;
 
-        if (!this.isLeaf) {
-            // Get the center of the split
-            Vector3 c = (c1.transform.position + c2.transform.position) / 2.0f;
+        // if (force > 0f)
+        //     Debug.Log(force);
 
-            // Debug.Log(collision.collider.name);
-            rigids.left.AddExplosionForce(0.3f, c, 10.0f);
-            rigids.right.AddExplosionForce(0.3f, c, 10.0f);
+        // Damage the asteroid
+        this.health -= force;
+
+        if (this.health <= 0f) {
+            // Split the asteroid
+            (Rigidbody left, Rigidbody right) rigids = Split(100f);
+
+            if (!this.isLeaf) {
+                // Get the center of the split
+                Vector3 c = (c1.transform.position + c2.transform.position) / 2.0f;
+
+                // Debug.Log(collision.collider.name);
+                rigids.left.AddExplosionForce(0.3f, c, 10.0f);
+                rigids.right.AddExplosionForce(0.3f, c, 10.0f);
+            }
         }
     }
 }

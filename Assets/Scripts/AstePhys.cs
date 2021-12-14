@@ -8,6 +8,19 @@ public class AstePhys : MonoBehaviour {
     public VoroAsteroid handler;
 
     private Vector3 movedPosition;
+    private int grace;
+
+    // It's important to use a grace period
+    // because in the Update method we destroy
+    // the asteroid when we are out of bounds.
+    // But when we start reusing the AstePhys-es,
+    // then the Update might happen when we don't
+    // have the correct coorcdinates for the rigidbody,
+    // in which case one of the child asteroids just
+    // gets disintegrated on birth.
+    public void Grace() {
+        this.grace = 20;
+    }
 
     public void Reset() {
         this.movedPosition = this.position.transform.position;
@@ -44,9 +57,12 @@ public class AstePhys : MonoBehaviour {
         GetComponent<Rigidbody>().position += delta;
         movedPosition -= delta;
 
+        if (grace > 0)
+            grace -= 1;
+
         GetComponent<Rigidbody>().position = new Vector3(GetComponent<Rigidbody>().position.x, GetComponent<Rigidbody>().position.y, 0);
 
-        if (GetComponent<Rigidbody>().position.magnitude > environment.maxDistance) {
+        if (GetComponent<Rigidbody>().position.magnitude > environment.maxDistance && grace == 0) {
             this.DisintegrateChildren();
         }
     }
