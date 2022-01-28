@@ -144,16 +144,16 @@ public class AsteroidCreatror : MonoBehaviour {
         hh.Initialize();
     }
 
-    (GameObject, int, int) CreateObjects(MeshTree hierarchy, Transform parent, VoroAsteroid handler) {
+    (GameObject, int, List<GameObject>) CreateObjects(MeshTree hierarchy, Transform parent, VoroAsteroid handler) {
         GameObject newObj;
         int count = 1;
-        int leaves = 0;
+        List<GameObject> leaves = new List<GameObject>();
 
         // Leaf
         if (hierarchy.children.Count == 0) {
             newObj = Instantiate(leaf, parent);
             InitLeaf(newObj, hierarchy, handler);
-            leaves = 1;
+            leaves.Add(newObj);
         }
 
         else {
@@ -162,28 +162,28 @@ public class AsteroidCreatror : MonoBehaviour {
             List<GameObject> children = new List<GameObject>();
 
             foreach (MeshTree child in hierarchy.children) {
-                (GameObject obj, int count, int leaves) r = CreateObjects(child, newObj.transform, handler);
+                (GameObject obj, int count, List<GameObject> leaves) r = CreateObjects(child, newObj.transform, handler);
                 children.Add(r.obj);
                 count += r.count;
-                leaves += r.leaves;
+                leaves.AddRange(r.leaves);
             }
 
-            InitBranch(newObj, children, handler, leaves);
+            InitBranch(newObj, children, handler, leaves.Count);
         }
 
         return (newObj, count, leaves);
     }
 
-    (GameObject, int, int) CreateObjects(MeshTree hierarchy, VoroAsteroid handler) {
+    (GameObject, int, List<GameObject>) CreateObjects(MeshTree hierarchy, VoroAsteroid handler) {
         GameObject newObj;
         int count = 1;
-        int leaves = 0;
+        List<GameObject> leaves = new List<GameObject>();
 
         // Leaf
         if (hierarchy.children.Count == 0) {
             newObj = Instantiate(leaf);
             InitLeaf(newObj, hierarchy, handler);
-            leaves = 1;
+            leaves.Add(newObj);
         }
 
         else {
@@ -192,13 +192,13 @@ public class AsteroidCreatror : MonoBehaviour {
             List<GameObject> children = new List<GameObject>();
 
             foreach (MeshTree child in hierarchy.children) {
-                (GameObject obj, int count, int leaves) r = CreateObjects(child, newObj.transform, handler);
+                (GameObject obj, int count, List<GameObject> leaves) r = CreateObjects(child, newObj.transform, handler);
                 children.Add(r.obj);
                 count += r.count;
-                leaves += r.leaves;
+                leaves.AddRange(r.leaves);
             }
 
-            InitBranch(newObj, children, handler, leaves);
+            InitBranch(newObj, children, handler, leaves.Count);
         }
 
         return (newObj, count, leaves);
@@ -206,29 +206,30 @@ public class AsteroidCreatror : MonoBehaviour {
 
     public void Initialize() {
         // Get the voronoi cells
-        voronoi = VoronoiMesh.Get(
+        voronoi = VoronoiMesh.GetFull(
             NumberOfVertices,
             size,
             seed,
-            material,
-            radius,
-            new Vector3(xsize, ysize, zsize)
+            material
         );
     }
 
     public VoroAsteroid Create(Environment environment, Position position) {
+        Vector3 randpos = size * new Vector3(Random.Range(radius - 1f, 1f - radius), Random.Range(radius - 1f, 1f - radius), Random.Range(radius - 1f, 1f - radius));
+        (List<Mesh> meshes, List<Vector3> centers) subvoronoi = VoronoiMesh.GeometricSubset(voronoi.meshes, voronoi.centers, randpos, radius, new Vector3(xsize, ysize, zsize), size);
+
         // Create the master handler
         GameObject masterHandler = Instantiate(this.asteroidHandler);
         VoroAsteroid handler = masterHandler.GetComponent<VoroAsteroid>();
         handler.phys = this.astePhys;
         handler.position = position;
-        handler.nrOfLeaves = voronoi.meshes.Count;
+        handler.nrOfLeaves = subvoronoi.meshes.Count;
 
         // Cluster them
-        MeshTree hierarchy = this.Cluster(voronoi.meshes, voronoi.centers);
+        MeshTree hierarchy = this.Cluster(subvoronoi.meshes, subvoronoi.centers);
 
         // Now create
-        (GameObject obj, int count, int leaves) root = CreateObjects(hierarchy, handler);
+        (GameObject obj, int count, List<GameObject> leaves) root = CreateObjects(hierarchy, handler);
 
         // Add the root to the handler
         handler.root = root.obj;

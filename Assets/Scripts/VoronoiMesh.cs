@@ -8,10 +8,10 @@ using HullDelaunayVoronoi.Hull;
 using HullDelaunayVoronoi.Primitives;
 
 public class VoronoiMesh {
-    private static bool Filter(Vector3 region, Vertex3 filterable, float scale, float rad) {
-        float x = filterable.X / region.x;
-        float y = filterable.Y / region.y;
-        float z = filterable.Z / region.z;
+    private static bool Filter(Vector3 region, Vector3 filterable, Vector3 pos, float scale, float rad) {
+        float x = (filterable.x - pos.x) / region.x;
+        float y = (filterable.y - pos.y) / region.y;
+        float z = (filterable.z - pos.z) / region.z;
 
         float r = scale * rad;
 
@@ -26,7 +26,7 @@ public class VoronoiMesh {
         return true;
     }
 
-    public static (List<Mesh> meshes, List<Vector3> centers) Get(int nverts, float scale, int seed, Material mat, float rad, Vector3 size) {
+    public static (List<Mesh> meshes, List<Vector3> centers) GetFull(int nverts, float scale, int seed, Material mat) {
         Vertex3[] vertices = new Vertex3[nverts];
 
         Random.InitState(seed);
@@ -41,35 +41,46 @@ public class VoronoiMesh {
         VoronoiMesh3 voronoi = new VoronoiMesh3();
         voronoi.Generate(vertices);
 
-        return RegionsToMeshes(voronoi, scale, seed, mat, rad, size);
+        return RegionsToMeshes(voronoi, scale, seed, mat);
     }
 
-    private static (List<Mesh> meshes, List<Vector3> centers) RegionsToMeshes(VoronoiMesh3 voronoi, float scale, int seed, Material mat, float rad, Vector3 size) {
+    public static (List<Mesh> meshes, List<Vector3> centers) GeometricSubset(List<Mesh> meshes, List<Vector3> centers, Vector3 pos, float rad, Vector3 size, float scale) {
+        List<Mesh> newmeshes = new List<Mesh>();
+        List<Vector3> newcenters = new List<Vector3>();
+
+        for (int i = 0; i < meshes.Count; ++i) {
+            Mesh m = meshes[i];
+            Vector3 c = centers[i];
+
+            if (!Filter(size, c, pos, scale, rad))
+                continue;
+
+            newmeshes.Add(m);
+            newcenters.Add(c);
+        }
+
+        return (newmeshes, newcenters);
+    }
+
+    private static (List<Mesh> meshes, List<Vector3> centers) RegionsToMeshes(VoronoiMesh3 voronoi, float scale, int seed, Material mat) {
         List<Mesh> meshes = new List<Mesh>();
         List<Vector3> centers = new List<Vector3>();
 
         foreach (VoronoiRegion<Vertex3> region in voronoi.Regions) {
-            bool draw = true;
-
             Vertex3 center = region.ArithmeticCenter;
-            if (!Filter(size, center, scale, rad))
-                continue;
-
             List<Vertex3> verts = new List<Vertex3>();
 
             foreach (DelaunayCell<Vertex3> cell in region.Cells) {
-                if (!InBound(cell.CircumCenter, scale)) {
-                    draw = false;
-                    break;
-                }
+                verts.Add(cell.CircumCenter);
+                // if (!InBound(cell.CircumCenter, scale)) {
+                //     draw = false;
+                //     break;
+                // }
 
-                else {
-                    verts.Add(cell.CircumCenter);
-                }
+                // else {
+                //     verts.Add(cell.CircumCenter);
+                // }
             }
-
-            if (!draw)
-                continue;
 
             // If you find the convex hull of the voronoi region it
             // can be used to make a triangle mesh.

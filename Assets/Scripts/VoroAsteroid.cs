@@ -52,7 +52,7 @@ public class VoroAsteroid : MonoBehaviour {
         this.environment.ReturnAsteroid(this);
     }
 
-    public void Enable(Vector3 pos, Vector3 velocity) {
+    public void Enable(Vector3 pos, Vector3 velocity, Vector3 angvelocity) {
         gameObject.SetActive(true);
 
         // Enable the children as well
@@ -63,6 +63,7 @@ public class VoroAsteroid : MonoBehaviour {
         this.rootHandler.Activate(newPhys, 10f);
         newPhys.transform.localPosition = pos;
         newPhys.GetComponent<Rigidbody>().velocity = velocity;
+        newPhys.GetComponent<Rigidbody>().angularVelocity = angvelocity;
     }
 
     public void Disable() {

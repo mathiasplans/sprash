@@ -59,7 +59,12 @@ public class Environment : MonoBehaviour {
         velocity.x = this.wind.x;
         velocity.y = this.wind.y;
         velocity.z = 0.0f;
-        va.Enable(newPos, velocity);
+        Vector3 angvel = new Vector3();
+        angvel.x = Random.Range(-0.5f, 0.5f);
+        angvel.y = Random.Range(-0.5f, 0.5f);
+        angvel.z = Random.Range(-0.5f, 0.5f);
+
+        va.Enable(newPos, velocity, angvel);
     }
 
     public void ReturnAsteroid(VoroAsteroid asteroid) {

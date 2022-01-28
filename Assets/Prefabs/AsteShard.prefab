@@ -115,3 +115,5 @@ MonoBehaviour:
   c1: {fileID: 0}
   c2: {fileID: 0}
   handler: {fileID: 0}
+  pos: {fileID: 0}
+  size: 0

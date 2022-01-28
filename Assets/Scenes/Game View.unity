@@ -440,11 +440,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   wind: {x: 4, y: 4}
   acreator: {fileID: 1482312862}
-  distance: 40
+  distance: 50
   frequency: 1
   position: {fileID: 1641044616}
-  maxDistance: 50
-  asteroidPoolSize: 10
+  maxDistance: 55
+  asteroidPoolSize: 120
   debrisPoolSize: 0
 --- !u!4 &258219821
 Transform:
@@ -660,7 +660,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &512979007
 Transform:
   m_ObjectHideFlags: 0
@@ -730,7 +730,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 10
+  orthographic size: 20
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -1316,7 +1316,7 @@ Transform:
   m_GameObject: {fileID: 1002110193}
   m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
   m_LocalPosition: {x: 0, y: 0, z: 50}
-  m_LocalScale: {x: 4, y: 2, z: 2}
+  m_LocalScale: {x: 8, y: 2, z: 4}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -1707,7 +1707,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1338965374
 Transform:
   m_ObjectHideFlags: 0
